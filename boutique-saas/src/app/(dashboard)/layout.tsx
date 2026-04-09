@@ -32,12 +32,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
           </div>
           <h1 className="text-xl font-bold text-gray-900 mb-2">Abonnement expiré</h1>
           <p className="text-gray-500 text-sm mb-6">
-            Votre abonnement Ma Boutique a expiré. Contactez votre administrateur pour le renouveler.
+            Votre abonnement Ma Boutique a expiré. Contactez votre administrateur.
           </p>
-          <div className="bg-gray-50 rounded-xl p-4 text-sm text-gray-600">
-            <p className="font-medium">{tenant?.nom}</p>
-            <p className="text-gray-400 mt-1">Plan {tenant?.plan}</p>
-          </div>
           <a href="tel:+22666810504" className="block mt-4 text-blue-600 font-bold text-lg">
             +226 66 81 05 04
           </a>
@@ -66,9 +62,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         {expireBientot && (
           <div className="bg-amber-50 border-b border-amber-200 px-6 py-2.5 flex items-center gap-2 text-sm text-amber-800">
             <AlertTriangle className="w-4 h-4 shrink-0" />
-            <span>
-              Votre abonnement expire dans <strong>{joursRestants} jour{joursRestants > 1 ? 's' : ''}</strong>.
-            </span>
+            <span>Votre abonnement expire dans <strong>{joursRestants} jour{joursRestants > 1 ? 's' : ''}</strong>.</span>
           </div>
         )}
         <main className="flex-1 overflow-auto p-4 lg:p-6">
