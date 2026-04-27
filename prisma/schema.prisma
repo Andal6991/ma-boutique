@@ -1,0 +1,353 @@
+// prisma/schema.prisma
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  password      String?
+  role          String    @default("VENDEUR") // ADMIN | GERANT | VENDEUR
+  image         String?
+  tenantId      String
+  tenant        Tenant    @relation(fields: [tenantId], references: [id])
+  accounts      Account[]
+  sessions      Session[]
+  ventes           Vente[]
+  userTenants      UserTenant[]
+  depenses         Depense[]     @relation("DepensesUser")
+  commentairesVente CommentaireVente[] @relation("CommentairesUser")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([tenantId])
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Tenant {
+  id                  String      @id @default(cuid())
+  nom                 String
+  sousDomaine         String      @unique
+  plan                String      @default("STARTER") // STARTER | PRO | ENTERPRISE
+  actif               Boolean     @default(true)
+  // Abonnement
+  dateDebutAbonnement DateTime    @default(now())
+  dateFinAbonnement   DateTime    @default(now())
+  prixMensuel         Float       @default(0)
+  devise              String      @default("FCFA")
+  notesAdmin          String?
+  // Contact
+  telephone           String?
+  emailContact        String?
+  adresse             String?
+  logo                String?
+  couleurPrimaire     String    @default("#1e40af")
+  pointsParMille      Int       @default(1)
+  seuilFidelite       Int       @default(100)
+  // Limites par plan
+  maxVendeurs         Int       @default(2)
+  maxProduits         Int       @default(100)
+  maxClients          Int       @default(200)
+  users       User[]
+  produits    Produit[]
+  clients     Client[]
+  ventes      Vente[]
+  categories   Categorie[]
+  fournisseurs  Fournisseur[]
+  userTenants   UserTenant[]
+  depenses      Depense[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+model SuperAdmin {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  nom       String
+  createdAt DateTime @default(now())
+}
+
+model Categorie {
+  id        String    @id @default(cuid())
+  nom       String
+  tenantId  String
+  tenant    Tenant    @relation(fields: [tenantId], references: [id])
+  produits  Produit[]
+  createdAt DateTime  @default(now())
+
+  @@index([tenantId])
+}
+
+model Produit {
+  id          String       @id @default(cuid())
+  reference   String
+  libelle     String
+  description String?
+  prixHT      Float
+  tauxTVA     Float        @default(0)
+  stock       Int          @default(0)
+  stockMin    Int          @default(5)
+  unite       String       @default("pièce")
+  imageUrl    String?
+  actif       Boolean      @default(true)
+  tenantId    String
+  tenant      Tenant       @relation(fields: [tenantId], references: [id])
+  categorieId   String?
+  categorie     Categorie?   @relation(fields: [categorieId], references: [id])
+  fournisseurId String?
+  fournisseur   Fournisseur? @relation(fields: [fournisseurId], references: [id])
+  lignes      VenteLigne[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@unique([tenantId, reference])
+  @@index([tenantId])
+}
+
+model Client {
+  id          String   @id @default(cuid())
+  nom         String
+  prenom      String?
+  telephone   String?
+  email       String?
+  adresse     String?
+  encours     Float    @default(0)
+  creditMax   Float    @default(0)
+  actif       Boolean  @default(true)
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  ventes      Vente[]
+  credits       Credit[]
+  fidelite      FideliteClient?
+  pointsFidelite PointFidelite[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([tenantId])
+}
+
+model Vente {
+  id           String       @id @default(cuid())
+  numero       String
+  montantHT    Float
+  montantTTC   Float
+  remise       Float        @default(0)
+  montantPaye  Float        @default(0)
+  statut          String       @default("EN_ATTENTE") // EN_ATTENTE | PARTIELLEMENT_PAYEE | PAYEE | ANNULEE
+  annuleeParId     String?
+  raisonAnnulation  String?
+  commentaires     CommentaireVente[]
+  tenantId     String
+  tenant       Tenant       @relation(fields: [tenantId], references: [id])
+  clientId     String?
+  client       Client?      @relation(fields: [clientId], references: [id])
+  userId       String
+  user         User         @relation(fields: [userId], references: [id])
+  lignes       VenteLigne[]
+  paiements    Paiement[]
+  credit       Credit?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@unique([tenantId, numero])
+  @@index([tenantId])
+}
+
+model VenteLigne {
+  id          String  @id @default(cuid())
+  quantite    Int
+  prixUnitaire Float
+  remiseLigne Float   @default(0)
+  venteId     String
+  vente       Vente   @relation(fields: [venteId], references: [id], onDelete: Cascade)
+  produitId   String
+  produit     Produit @relation(fields: [produitId], references: [id])
+
+  @@index([venteId])
+}
+
+model Paiement {
+  id          String   @id @default(cuid())
+  montant     Float
+  mode        String   // ESPECES | MOBILE_MONEY | CHEQUE | VIREMENT | CREDIT
+  reference   String?
+  venteId     String
+  vente       Vente    @relation(fields: [venteId], references: [id])
+  createdAt   DateTime @default(now())
+
+  @@index([venteId])
+}
+
+model Credit {
+  id              String          @id @default(cuid())
+  montantInitial  Float
+  soldeRestant    Float
+  echeance        DateTime
+  statut          String          @default("EN_COURS") // EN_COURS | EN_RETARD | SOLDE | ANNULE
+  notes           String?
+  clientId        String
+  client          Client          @relation(fields: [clientId], references: [id])
+  venteId         String?         @unique
+  vente           Vente?          @relation(fields: [venteId], references: [id])
+  remboursements  Remboursement[]
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@index([clientId])
+}
+
+model Remboursement {
+  id        String   @id @default(cuid())
+  montant   Float
+  mode      String   // ESPECES | MOBILE_MONEY | CHEQUE | VIREMENT
+  reference String?
+  notes     String?
+  creditId  String
+  credit    Credit   @relation(fields: [creditId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@index([creditId])
+}
+
+model Fournisseur {
+  id          String    @id @default(cuid())
+  nom         String
+  telephone   String?
+  email       String?
+  adresse     String?
+  contact     String?
+  notes       String?
+  actif       Boolean   @default(true)
+  tenantId    String
+  tenant      Tenant    @relation(fields: [tenantId], references: [id])
+  produits    Produit[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([tenantId])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  type      String   // CREDIT_RETARD | STOCK_BAS | ABONNEMENT_EXPIRE
+  titre     String
+  message   String
+  lu        Boolean  @default(false)
+  tenantId  String
+  userId    String?
+  createdAt DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([tenantId, lu])
+}
+
+model FideliteClient {
+  id            String   @id @default(cuid())
+  clientId      String   @unique
+  client        Client   @relation(fields: [clientId], references: [id])
+  points        Int      @default(0)
+  pointsTotal   Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model PointFidelite {
+  id        String   @id @default(cuid())
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id])
+  points    Int
+  motif     String   // ACHAT | REMBOURSEMENT | BONUS | UTILISATION
+  venteId   String?
+  createdAt DateTime @default(now())
+
+  @@index([clientId])
+}
+
+// Table pivot User <-> Tenant pour le multi-boutiques
+model UserTenant {
+  id        String   @id @default(cuid())
+  userId    String
+  tenantId  String
+  role      String   @default("VENDEUR")
+  actif     Boolean  @default(true)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, tenantId])
+  @@index([userId])
+  @@index([tenantId])
+}
+
+model Depense {
+  id          String   @id @default(cuid())
+  libelle     String
+  montant     Float
+  categorie   String   @default("AUTRE") // LOYER | ELECTRICITE | INTERNET | SALAIRE | TRANSPORT | FOURNITURE | AUTRE
+  date        DateTime @default(now())
+  notes       String?
+  justificatif String?  // URL ou référence
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  userId      String
+  user        User     @relation("DepensesUser", fields: [userId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([tenantId, date])
+}
+
+model CommentaireVente {
+  id           String   @id @default(cuid())
+  contenu      String
+  type         String   @default("NOTE") // NOTE | DEMANDE_SUPPRESSION | VALIDATION_SUPPRESSION
+  venteId      String
+  vente        Vente    @relation(fields: [venteId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User     @relation("CommentairesUser", fields: [userId], references: [id])
+  createdAt    DateTime @default(now())
+
+  @@index([venteId])
+}
